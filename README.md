@@ -157,7 +157,7 @@ flowchart TD
   subgraph Sync [Multiplayer sync modules]
     direction LR
     mpMgr["MultiplayerManager"]
-    charSync["character_sync"]
+    peerProxy["remote_peer_proxy"]
     itemSync["item_sync / configured_items_sync"]
     auth["item_authority_tracker"]
     env["environment_physics_sync"]
