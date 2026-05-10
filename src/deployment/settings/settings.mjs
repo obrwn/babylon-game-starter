@@ -1,6 +1,6 @@
-/** @type {import('../types/settings').DeploymentSettings<'render.com'>} */
+/** @type {import('../types/settings').DeploymentSettings<'github.io'>} */
 const deploymentSettings = {
-  host: 'netlify',
+  host: 'github.io',
   type: 'static',
   services: [
     {
@@ -11,7 +11,7 @@ const deploymentSettings = {
     }
   ],
   static: {
-    basePath: '/'
+    basePath: '/babylon-game-starter/'
   }
 };
 
