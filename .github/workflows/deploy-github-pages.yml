@@ -2,8 +2,8 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [gh-deploy]
-  # Only gh-deploy is a valid ref (see assert_deploy_branch). Pushes to main do not match on.push and do not start this workflow.
+    branches: ["gh-deploy"]
+  # Only gh-deploy is a valid ref (see assert_deploy_branch). Pushes to other branches do not match on.push.
   workflow_dispatch:
 
 permissions:
@@ -19,10 +19,10 @@ jobs:
   assert_deploy_branch:
     runs-on: ubuntu-latest
     steps:
-      - name: Only gh-deploy may reach the github-pages environment
+      - name: Only deploy branch may reach the github-pages environment
         run: |
           if [ "${GITHUB_REF}" != "refs/heads/gh-deploy" ]; then
-            echo "::error::Pages deploy runs only on ref gh-deploy (push already filters to gh-deploy; for Run workflow set Use workflow from to gh-deploy). Current ref: ${GITHUB_REF}"
+            echo "::error::Pages deploy runs only on ref gh-deploy (push uses on.push; for Run workflow set Use workflow from to gh-deploy). Current ref: ${GITHUB_REF}"
             exit 1
           fi
 
@@ -42,8 +42,9 @@ jobs:
           path: dist
 
   deploy:
+    if: ${{ github.ref == 'refs/heads/gh-deploy' }}
     environment:
-      name: github-pages
+      name: "github-pages"
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
