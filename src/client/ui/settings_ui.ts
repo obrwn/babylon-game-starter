@@ -19,7 +19,12 @@ import {
   bindOverlayPressFeedback,
   bindOverlayToggle,
   bindPreventTextSelection,
-  repositionOverlayButton
+  isolatePanelPointerEvents,
+  muteOutsideClose,
+  repositionOverlayButton,
+  notifyOverlayPanelOpening,
+  onOtherOverlayPanelOpening,
+  setSettingsPanelOpen
 } from './overlay_button_utils';
 
 import type { OutsideCloseBinding, OverlayToggleBinding } from './overlay_button_utils';
@@ -46,6 +51,8 @@ export class SettingsUI {
   private static toggleBinding: OverlayToggleBinding | null = null;
   private static pressBinding: OverlayToggleBinding | null = null;
   private static selectionBinding: OverlayToggleBinding | null = null;
+  private static panelIsolationBinding: OverlayToggleBinding | null = null;
+  private static otherPanelBinding: OverlayToggleBinding | null = null;
   private static outsideCloseBinding: OutsideCloseBinding | null = null;
 
   // Device detection methods
@@ -103,9 +110,19 @@ export class SettingsUI {
         return this.isMobileDevice();
       case 'iPadWithKeyboard':
         return this.isIPadWithKeyboard();
+      case 'playground':
+        return this.isPlaygroundRuntime();
       default:
         return false;
     }
+  }
+
+  /** Babylon Playground shell (#pg-split) or playground.babylonjs.com — not game maps. */
+  private static isPlaygroundRuntime(): boolean {
+    if (this.isPlaygroundHost()) {
+      return true;
+    }
+    return document.getElementById('pg-split') instanceof HTMLElement;
   }
 
   private static async runSectionAction(
@@ -251,6 +268,7 @@ export class SettingsUI {
     this.settingsPanel.innerHTML = `
             <div class="settings-header">
                 <h2>${CONFIG.SETTINGS.HEADING_TEXT}</h2>
+                <button type="button" class="overlay-panel-close" aria-label="Close settings">✕</button>
             </div>
             <div class="settings-content">
                 ${sectionsHTML}
@@ -276,13 +294,6 @@ export class SettingsUI {
             touch-action: manipulation;
         `;
 
-    this.settingsPanel.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-    });
-    this.settingsPanel.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-    });
-
     // Style the header
     const header = this.settingsPanel.querySelector('.settings-header');
     if (header instanceof HTMLElement) {
@@ -291,8 +302,9 @@ export class SettingsUI {
             top: 0;
             z-index: 1;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
+            gap: 12px;
             padding: 20px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.05);
@@ -300,7 +312,6 @@ export class SettingsUI {
             max-width: 100%;
         `;
 
-      // Style the header title
       const headerTitle = header.querySelector('h2');
       if (headerTitle instanceof HTMLElement) {
         headerTitle.style.cssText = `
@@ -308,6 +319,25 @@ export class SettingsUI {
             font-size: 24px;
             font-weight: bold;
             color: white;
+            flex: 1;
+            text-align: center;
+        `;
+      }
+
+      const closeButton = header.querySelector('.overlay-panel-close');
+      if (closeButton instanceof HTMLButtonElement) {
+        closeButton.style.cssText = `
+            flex: 0 0 auto;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
         `;
       }
     }
@@ -768,9 +798,30 @@ export class SettingsUI {
         this.closePanel();
       }
     });
+    this.panelIsolationBinding = isolatePanelPointerEvents(this.settingsPanel);
+    this.otherPanelBinding = onOtherOverlayPanelOpening('settings', () => {
+      this.closePanel();
+    });
 
+    this.settingsPanel.addEventListener('click', this.handlePanelClick);
+    window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('resize', this.handleWindowResize);
   }
+
+  private static handlePanelClick = (e: MouseEvent): void => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('.overlay-panel-close')) {
+      e.stopPropagation();
+      this.closePanel();
+    }
+  };
+
+  private static handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.isPanelOpen) {
+      this.closePanel();
+    }
+  };
 
   private static handleWindowResize = (): void => {
     if (this.settingsButton) {
@@ -785,11 +836,19 @@ export class SettingsUI {
     this.toggleBinding?.remove();
     this.pressBinding?.remove();
     this.selectionBinding?.remove();
+    this.panelIsolationBinding?.remove();
+    this.otherPanelBinding?.remove();
     this.outsideCloseBinding?.remove();
     this.toggleBinding = null;
     this.pressBinding = null;
     this.selectionBinding = null;
+    this.panelIsolationBinding = null;
+    this.otherPanelBinding = null;
     this.outsideCloseBinding = null;
+    if (this.settingsPanel) {
+      this.settingsPanel.removeEventListener('click', this.handlePanelClick);
+    }
+    window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('resize', this.handleWindowResize);
   }
 
@@ -803,18 +862,18 @@ export class SettingsUI {
 
   private static openPanel(): void {
     if (!this.settingsPanel || !this.settingsButton) return;
+    notifyOverlayPanelOpening('settings');
+    muteOutsideClose();
     this.updatePanelWidth();
     this.settingsPanel.style.left = '0px';
     this.settingsPanel.style.zIndex = String(CONFIG.SETTINGS.BUTTON_Z_INDEX + 50);
     this.isPanelOpen = true;
-    this.settingsButton.dataset.panelOpen = 'true';
-    this.settingsButton.style.transform = 'scale(1.1)';
-    this.settingsButton.style.background = 'rgba(0, 0, 0, 0.9)';
-    this.settingsButton.style.zIndex = CONFIG.SETTINGS.BUTTON_Z_INDEX.toString();
+    setSettingsPanelOpen(true);
 
     // Sync split rendering state when panel opens
     // Use requestAnimationFrame to ensure DOM is ready
     requestAnimationFrame(() => {
+      this.regenerateSections();
       this.syncSplitRenderingToggleState();
       this.syncGameHUDToggleState();
       this.syncInspectorToggleState();
@@ -828,10 +887,12 @@ export class SettingsUI {
     this.settingsPanel.style.left = `-${panelWidth}px`;
     this.settingsPanel.style.zIndex = String(CONFIG.SETTINGS.Z_INDEX);
     this.isPanelOpen = false;
-    this.settingsButton.dataset.panelOpen = 'false';
-    this.settingsButton.style.transform = 'scale(1)';
-    this.settingsButton.style.background = 'rgba(0, 0, 0, 0.7)';
-    this.settingsButton.style.zIndex = CONFIG.SETTINGS.BUTTON_Z_INDEX.toString();
+    setSettingsPanelOpen(false);
+    if (this.settingsButton) {
+      this.settingsButton.dataset.panelOpen = 'false';
+      this.settingsButton.style.transform = 'scale(1)';
+      this.settingsButton.style.background = 'rgba(0, 0, 0, 0.7)';
+    }
   }
 
   private static updatePanelWidth(): void {

@@ -7,8 +7,7 @@ import { DeviceDetector } from '../utils/device_detector';
 
 const DESKTOP_CORNER_INSET = 20;
 const OVERLAY_BUTTON_SIZE = 50;
-/** Bottom strip on mobile — HUD stays at the top; these sit low beside touch controls. */
-const MOBILE_BOTTOM_INSET = 20;
+const ACTIVATION_DEBOUNCE_MS = 400;
 
 export type OverlayCorner = 'bottom-left' | 'bottom-right';
 
@@ -32,35 +31,30 @@ export interface OutsideCloseBinding {
   remove: () => void;
 }
 
-/**
- * True when on-screen mobile joystick / action buttons are in use.
- */
+let outsideCloseMutedUntil = 0;
+
+/** Ignore outside-close briefly after opening (avoids same-tap ghost close on mobile). */
+export function muteOutsideClose(ms = 450): void {
+  outsideCloseMutedUntil = Date.now() + ms;
+}
+
 export function shouldUseMobileOverlayLayout(): boolean {
   return DeviceDetector.isMobileDevice() || document.getElementById('mobile-joystick') != null;
 }
 
-/**
- * Layout for settings / inventory — always bottom corners.
- * On mobile: stay on the bottom edge but shift inward beside joystick / jump+boost columns.
- */
 export function getOverlayButtonLayout(corner: OverlayCorner): OverlayButtonLayout {
   const margin = DESKTOP_CORNER_INSET;
 
   if (shouldUseMobileOverlayLayout()) {
-    const joystickWidth = MOBILE_CONTROLS.JOYSTICK_RADIUS * 2;
-    const actionColumnWidth = MOBILE_CONTROLS.BUTTON_SIZE + margin;
-
     if (corner === 'bottom-left') {
-      // Right of the joystick column, still on the bottom strip
       return {
-        bottom: MOBILE_BOTTOM_INSET,
-        left: joystickWidth + margin
+        bottom: MOBILE_CONTROLS.OVERLAY.SETTINGS.BOTTOM,
+        left: MOBILE_CONTROLS.OVERLAY.SETTINGS.LEFT
       };
     }
-    // Left of the jump/boost column, still on the bottom strip
     return {
-      bottom: MOBILE_BOTTOM_INSET,
-      right: actionColumnWidth + margin
+      bottom: MOBILE_CONTROLS.OVERLAY.INVENTORY.BOTTOM,
+      right: MOBILE_CONTROLS.OVERLAY.INVENTORY.RIGHT
     };
   }
 
@@ -87,22 +81,22 @@ function layoutToCss(layout: OverlayButtonLayout): string {
   return parts.join('; ');
 }
 
-/**
- * Applies shared fixed overlay button styles for reliable touch targets.
- */
 export function applyOverlayButtonBaseStyles(
   el: HTMLElement,
   options: OverlayButtonStyleOptions
 ): void {
   const layout = getOverlayButtonLayout(options.corner);
   const positionCss = layoutToCss(layout);
+  const zIndex = shouldUseMobileOverlayLayout()
+    ? MOBILE_CONTROLS.OVERLAY_Z_INDEX
+    : options.zIndex;
 
   el.style.cssText = `
     position: fixed;
     ${positionCss};
     width: ${OVERLAY_BUTTON_SIZE}px;
     height: ${OVERLAY_BUTTON_SIZE}px;
-    z-index: ${options.zIndex};
+    z-index: ${zIndex};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -121,9 +115,6 @@ export function applyOverlayButtonBaseStyles(
   `;
 }
 
-/**
- * Re-applies corner position (e.g. after resize or mobile controls mount).
- */
 export function repositionOverlayButton(el: HTMLElement, corner: OverlayCorner): void {
   const layout = getOverlayButtonLayout(corner);
   el.style.top = '';
@@ -132,7 +123,71 @@ export function repositionOverlayButton(el: HTMLElement, corner: OverlayCorner):
   el.style.right = layout.right != null ? `${layout.right}px` : '';
 }
 
-/** After mobile controls mount, snap settings/inventory beside them on the bottom edge. */
+let settingsPanelOpen = false;
+let inventoryPanelOpen = false;
+
+/** Hide corner trigger so it does not cover controls. */
+export function setOverlayTriggerVisible(el: HTMLElement | null, visible: boolean): void {
+  if (!el) {
+    return;
+  }
+  el.style.visibility = visible ? 'visible' : 'hidden';
+  el.style.pointerEvents = visible ? 'auto' : 'none';
+}
+
+function syncCornerOverlayTriggers(): void {
+  const showTriggers = !settingsPanelOpen && !inventoryPanelOpen;
+  const settings = document.getElementById('settings-button');
+  const inventory = document.getElementById('inventory-button');
+  setOverlayTriggerVisible(settings instanceof HTMLElement ? settings : null, showTriggers);
+  setOverlayTriggerVisible(inventory instanceof HTMLElement ? inventory : null, showTriggers);
+  if (showTriggers) {
+    repositionAllOverlayButtons();
+  }
+}
+
+export type OverlayPanelId = 'settings' | 'inventory';
+
+const OVERLAY_PANEL_OPEN_EVENT = 'overlay-panel-open';
+
+/** Settings / inventory listen and close themselves when the other opens. */
+export function notifyOverlayPanelOpening(opened: OverlayPanelId): void {
+  window.dispatchEvent(new CustomEvent(OVERLAY_PANEL_OPEN_EVENT, { detail: opened }));
+}
+
+export function onOtherOverlayPanelOpening(
+  self: OverlayPanelId,
+  closeSelf: () => void
+): OverlayToggleBinding {
+  const handler = (e: Event): void => {
+    if (!(e instanceof CustomEvent)) {
+      return;
+    }
+    const opened = e.detail;
+    if (opened !== self) {
+      closeSelf();
+    }
+  };
+  window.addEventListener(OVERLAY_PANEL_OPEN_EVENT, handler);
+  return {
+    remove: () => {
+      window.removeEventListener(OVERLAY_PANEL_OPEN_EVENT, handler);
+    }
+  };
+}
+
+/** Call when settings panel opens or closes. Hides both gear and backpack while any panel is open. */
+export function setSettingsPanelOpen(open: boolean): void {
+  settingsPanelOpen = open;
+  syncCornerOverlayTriggers();
+}
+
+/** Call when inventory panel opens or closes. */
+export function setInventoryPanelOpen(open: boolean): void {
+  inventoryPanelOpen = open;
+  syncCornerOverlayTriggers();
+}
+
 export function repositionAllOverlayButtons(): void {
   const settings = document.getElementById('settings-button');
   const inventory = document.getElementById('inventory-button');
@@ -149,30 +204,20 @@ const PRESS_BORDER = 'rgba(255, 255, 255, 0.6)';
 const DEFAULT_BACKGROUND = 'rgba(0, 0, 0, 0.7)';
 const DEFAULT_BORDER = 'rgba(255, 255, 255, 0.3)';
 
-/**
- * Blocks text/image selection and long-press callouts on overlay buttons.
- */
 export function bindPreventTextSelection(el: HTMLElement): OverlayToggleBinding {
   const preventSelection = (e: Event): void => {
     e.preventDefault();
   };
 
   el.addEventListener('selectstart', preventSelection);
-  el.addEventListener('dragstart', preventSelection);
-  el.addEventListener('contextmenu', preventSelection);
 
   return {
     remove: () => {
       el.removeEventListener('selectstart', preventSelection);
-      el.removeEventListener('dragstart', preventSelection);
-      el.removeEventListener('contextmenu', preventSelection);
     }
   };
 }
 
-/**
- * Press feedback for overlay buttons (touch and mouse).
- */
 export function bindOverlayPressFeedback(el: HTMLElement): OverlayToggleBinding {
   const onPress = (): void => {
     el.style.background = PRESS_BACKGROUND;
@@ -207,45 +252,45 @@ export function bindOverlayPressFeedback(el: HTMLElement): OverlayToggleBinding 
 }
 
 /**
- * Toggle on pointerup; click fallback for keyboard. Stops propagation so game controls do not steal the tap.
+ * Reliable tap/click activation for corner buttons (debounced touchend + click).
  */
 export function bindOverlayToggle(el: HTMLElement, onToggle: () => void): OverlayToggleBinding {
-  let suppressClick = false;
+  let lastActivation = 0;
 
+  const activate = (e: Event): void => {
+    e.stopPropagation();
+    const now = Date.now();
+    if (now - lastActivation < ACTIVATION_DEBOUNCE_MS) {
+      return;
+    }
+    lastActivation = now;
+    onToggle();
+  };
+
+  el.addEventListener('touchend', activate, { passive: false });
+  el.addEventListener('click', activate);
+
+  return {
+    remove: () => {
+      el.removeEventListener('touchend', activate);
+      el.removeEventListener('click', activate);
+    }
+  };
+}
+
+/** After children handle events, stop bubbling so canvas / document handlers do not run. */
+export function isolatePanelPointerEvents(panel: HTMLElement): OverlayToggleBinding {
   const stopBubble = (e: Event): void => {
     e.stopPropagation();
   };
 
-  const handlePointerUp = (e: PointerEvent): void => {
-    if (e.pointerType === 'mouse' && e.button !== 0) {
-      return;
-    }
-    suppressClick = true;
-    stopBubble(e);
-    onToggle();
-    window.setTimeout(() => {
-      suppressClick = false;
-    }, 400);
-  };
-
-  const handleClick = (e: MouseEvent): void => {
-    stopBubble(e);
-    if (suppressClick) {
-      e.preventDefault();
-      return;
-    }
-    onToggle();
-  };
-
-  el.addEventListener('pointerdown', stopBubble);
-  el.addEventListener('pointerup', handlePointerUp);
-  el.addEventListener('click', handleClick);
+  panel.addEventListener('click', stopBubble);
+  panel.addEventListener('touchend', stopBubble);
 
   return {
     remove: () => {
-      el.removeEventListener('pointerdown', stopBubble);
-      el.removeEventListener('pointerup', handlePointerUp);
-      el.removeEventListener('click', handleClick);
+      panel.removeEventListener('click', stopBubble);
+      panel.removeEventListener('touchend', stopBubble);
     }
   };
 }
@@ -257,12 +302,11 @@ export interface OutsideCloseOptions {
   onClose: () => void;
 }
 
-/**
- * Close overlay when tapping outside panel and trigger.
- * Uses click (not capture-phase pointerdown) so mobile toggles/selects still work.
- */
 export function bindOutsideClose(options: OutsideCloseOptions): OutsideCloseBinding {
   const handleClickOutside = (e: MouseEvent): void => {
+    if (Date.now() < outsideCloseMutedUntil) {
+      return;
+    }
     if (!options.isOpen()) {
       return;
     }
