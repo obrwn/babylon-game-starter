@@ -117,6 +117,8 @@ You then **merge** those PRs when you are ready. For **GitHub Pages**, merging i
 
 In the GitHub UI: **Actions** → **Sync feature ref to main and deployment branches** → **Run workflow**. Set **`feature_ref`** to a branch name, tag, or commit SHA. The same matrix jobs and PR behavior apply as for a tag push.
 
+That **`workflow_dispatch`** is on the **sync** workflow only. **Deploy GitHub Pages** also has **`workflow_dispatch`** for manual static redeploys, but you must run it from **`gh-deploy`** (see [GITHUB_PAGES_STATIC_SITE_DEPLOYMENT.md](GITHUB_PAGES_STATIC_SITE_DEPLOYMENT.md)).
+
 ## Related docs
 
 - **[GITHUB_PAGES_STATIC_SITE_DEPLOYMENT.md](GITHUB_PAGES_STATIC_SITE_DEPLOYMENT.md)** — GitHub Pages source, `github-pages` environment, and branch alignment.
