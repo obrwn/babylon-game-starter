@@ -5,25 +5,17 @@
 // /// <reference path="../types/babylon.d.ts" />
 
 import { AudioParameterRampShape } from '@babylonjs/core/AudioV2/audioParameter';
+import { CreateAudioEngineAsync } from '@babylonjs/core/AudioV2/webAudio/webAudioEngine';
 
 import { fromAbstractSound } from '../types/audio';
 
 import type { ManagedAudioSound } from '../types/audio';
 import type { AmbientSoundConfig } from '../types/environment';
 
-interface AudioEngineInitOptions {
-  volume?: number;
-  listenerEnabled?: boolean;
-  listenerAutoUpdate?: boolean;
-}
-
-type AudioEngineFactory = (
-  options?: AudioEngineInitOptions
-) => Promise<NonNullable<typeof globalThis.__babylonAudioEngine>>;
 type CreateAbstractSoundAsync = (
   name: string,
   source: string,
-  options?: Record<string, unknown>
+  options?: object
 ) => Promise<BABYLON.AbstractSound>;
 
 type ManagedSound = ManagedAudioSound;
@@ -41,19 +33,6 @@ export class AudioManager {
       }, timeoutMs);
     });
     return (await Promise.race([promise, timeout])) as T | null;
-  }
-
-  private static getCreateAudioEngineAsync(babylonBag: unknown): AudioEngineFactory | undefined {
-    if (typeof babylonBag !== 'object' || babylonBag === null) {
-      return undefined;
-    }
-
-    const candidate = Reflect.get(babylonBag, 'CreateAudioEngineAsync');
-    if (typeof candidate === 'function') {
-      return candidate as AudioEngineFactory;
-    }
-
-    return undefined;
   }
 
   private static getBabylonSoundFactory(
@@ -83,40 +62,19 @@ export class AudioManager {
       return existing;
     }
 
-    const g = globalThis as typeof globalThis & {
-      BABYLON?: Record<string, unknown>;
-      __babylonAudioEngine?: typeof globalThis.__babylonAudioEngine;
-    };
-
-    const createAudioEngineAsync = this.getCreateAudioEngineAsync(g.BABYLON);
-    if (!createAudioEngineAsync) {
-      console.warn('BABYLON.CreateAudioEngineAsync not found');
-      return null;
-    }
-
     try {
-      const audioEngine = await this.withTimeout(createAudioEngineAsync(), 5000);
+      const audioEngine = await this.withTimeout(CreateAudioEngineAsync(), 5000);
       if (!audioEngine) {
         console.warn('Audio engine creation timed out');
         return null;
       }
 
-      g.__babylonAudioEngine = audioEngine;
+      globalThis.__babylonAudioEngine = audioEngine;
       return audioEngine;
     } catch (error) {
       console.error('Failed to create audio engine:', error);
       return null;
     }
-  }
-
-  /**
-   * Attaches the audio listener to a camera
-   * @param camera The camera to attach the audio listener to
-   */
-  public static attachAudioListener(camera: BABYLON.Camera): void {
-    void camera;
-    // Note: Audio listener attachment may not be needed in current Babylon.js version
-    // Audio is spatial by default when position is set
   }
 
   /**
@@ -126,11 +84,7 @@ export class AudioManager {
    * @param options Additional options for the sound
    * @returns Promise that resolves when the sound is created
    */
-  public static async createSound(
-    name: string,
-    url?: string,
-    options?: Record<string, unknown>
-  ): Promise<void> {
+  public static async createSound(name: string, url?: string, options?: object): Promise<void> {
     const audioEngine = await this.ensureAudioEngine();
     if (!audioEngine) {
       console.warn(`Cannot create sound "${name}": audio engine not available`);
@@ -162,18 +116,6 @@ export class AudioManager {
   }
 
   /**
-   * Removes a sound by name
-   * @param name The name of the sound
-   */
-  public static removeSound(name: string): void {
-    const sound = this.activeSounds.get(name);
-    if (sound) {
-      sound.dispose();
-      this.activeSounds.delete(name);
-    }
-  }
-
-  /**
    * Creates a streaming sound (for background music)
    * @param name The name of the sound
    * @param url The URL of the sound file
@@ -183,7 +125,7 @@ export class AudioManager {
   public static async createStreamingSound(
     name: string,
     url: string,
-    options?: Record<string, unknown>
+    options?: object
   ): Promise<void> {
     const audioEngine = await this.ensureAudioEngine();
     if (!audioEngine) {
@@ -284,7 +226,9 @@ export class AudioManager {
    * Sets up ambient sounds for an environment
    * @param ambientSounds The ambient sound configurations
    */
-  public static async setupAmbientSounds(ambientSounds: AmbientSoundConfig[]): Promise<void> {
+  public static async setupAmbientSounds(
+    ambientSounds: readonly AmbientSoundConfig[]
+  ): Promise<void> {
     // Remove existing ambient sounds
     this.removeAmbientSounds();
 

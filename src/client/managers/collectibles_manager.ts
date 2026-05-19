@@ -84,6 +84,12 @@ export class CollectiblesManager {
     this.scene = scene;
     this.characterController = characterController;
     this.totalCredits = 0;
+    BehaviorManager.setCreditHandlers({
+      getTotalCredits: () => this.getTotalCredits(),
+      adjustCredits: (amount) => {
+        this.adjustCredits(amount);
+      }
+    });
     return Promise.resolve();
   }
 
@@ -794,8 +800,8 @@ export class CollectiblesManager {
       }
       this.collectibleBodies.delete(id);
       this.physicsItemBodies.delete(id);
-      if ('physicsBody' in mesh && (mesh as { physicsBody?: unknown }).physicsBody) {
-        (mesh as { physicsBody: BABYLON.PhysicsBody | null }).physicsBody = null;
+      if (mesh.physicsBody) {
+        mesh.physicsBody = null;
       }
     }
 
@@ -1168,5 +1174,6 @@ export class CollectiblesManager {
 
     this.scene = null;
     this.characterController = null;
+    BehaviorManager.setCreditHandlers(null);
   }
 }

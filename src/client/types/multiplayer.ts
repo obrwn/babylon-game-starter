@@ -91,8 +91,8 @@ export interface CharacterState {
  *
  * **Invariant E (no Euler on item paths).** The Euler channel of the mesh
  * (`mesh.rotation.x/y/z`) is never sampled and never written on item paths. Authoring
- * configs may express rotation as Euler (`config_euler_rotation.ts`), but that is
- * converted to quaternion at spawn and never read again by the item wire.
+ * configs may express rotation as Euler, but multiplayer samples and applies only
+ * quaternion pose data on the item wire.
  *
  * Under the three-tier authority model
  * ([§4.7](../../../MULTIPLAYER_SYNCH.md#47-item-authority-lifecycle) +
@@ -274,10 +274,23 @@ export interface ClientConnectionEvent {
 /**
  * Server error message
  */
+export type ServerErrorDetailValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly ServerErrorDetailValue[]
+  | ServerErrorDetailObject;
+
+// Recursive JSON-like object types need an index signature; `Record` aliases are rejected by TS 5.3 here.
+export interface ServerErrorDetailObject {
+  readonly [key: string]: ServerErrorDetailValue;
+}
+
 export interface ServerErrorMessage {
   readonly code: string;
   readonly message: string;
-  readonly details?: Record<string, unknown>;
+  readonly details?: Readonly<Record<string, ServerErrorDetailValue>>;
   readonly timestamp: number;
 }
 

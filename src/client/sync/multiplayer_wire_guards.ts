@@ -11,7 +11,7 @@ import type {
 } from '../types/multiplayer';
 
 /** World-space limits (meters); rejects absurd/grief payloads before Havok sees them. */
-export const MAX_ABS_WORLD_COORD = 5e6;
+const MAX_ABS_WORLD_COORD = 5e6;
 
 export function clampCoordComponent(n: number): number {
   if (!Number.isFinite(n)) {
@@ -21,7 +21,7 @@ export function clampCoordComponent(n: number): number {
 }
 
 /** Position or linear velocity in world units (clamped). */
-export function coerceWorldVector3(raw: unknown): [number, number, number] | null {
+function coerceWorldVector3(raw: unknown): [number, number, number] | null {
   if (!Array.isArray(raw) || raw.length !== 3) {
     return null;
   }
@@ -34,18 +34,13 @@ export function coerceWorldVector3(raw: unknown): [number, number, number] | nul
   return [clampCoordComponent(a), clampCoordComponent(b), clampCoordComponent(c)];
 }
 
-/** @deprecated alias — world-space triplets (position / velocity). */
-export function coerceTriplet(raw: unknown): [number, number, number] | null {
-  return coerceWorldVector3(raw);
-}
-
 /**
  * Wire rotation for **character sync** and **item sync**: unit quaternion [x, y, z, w].
  * Items carry a `pos` + `rot` pose pair on the wire — Invariant P in
  * [MULTIPLAYER_SYNCH.md §5.2](../../../MULTIPLAYER_SYNCH.md#52-item-state). `rot` is
  * validated and normalized via this function.
  */
-export function coerceQuaternion(raw: unknown): QuaternionSerializable | null {
+function coerceQuaternion(raw: unknown): QuaternionSerializable | null {
   if (!Array.isArray(raw) || raw.length !== 4) {
     return null;
   }
@@ -63,36 +58,40 @@ export function coerceItemInstanceState(raw: unknown): ItemInstanceState | null 
   if (raw === null || typeof raw !== 'object') {
     return null;
   }
-  const o = raw as Record<string, unknown>;
-  const instanceId = typeof o.instanceId === 'string' ? o.instanceId.trim() : '';
-  const itemName = typeof o.itemName === 'string' ? o.itemName.trim() : '';
+  const rawInstanceId = Reflect.get(raw, 'instanceId');
+  const rawItemName = Reflect.get(raw, 'itemName');
+  const instanceId = typeof rawInstanceId === 'string' ? rawInstanceId.trim() : '';
+  const itemName = typeof rawItemName === 'string' ? rawItemName.trim() : '';
   if (!instanceId || !itemName) {
     return null;
   }
 
-  const isCollected = Boolean(o.isCollected);
+  const rawIsCollected = Reflect.get(raw, 'isCollected');
+  const isCollected = Boolean(rawIsCollected);
 
   // Invariant P (pose-only): a live (non-collected) row MUST carry a valid `pos` and
   // `rot`. Collection-only rows (isCollected=true) are tolerated without a pose
   // because the receiver hides the mesh and the transform is irrelevant.
-  const pos = coerceWorldVector3(o.pos);
-  const rot = coerceQuaternion(o.rot);
+  const pos = coerceWorldVector3(Reflect.get(raw, 'pos'));
+  const rot = coerceQuaternion(Reflect.get(raw, 'rot'));
   if ((!pos || !rot) && !isCollected) {
     return null;
   }
 
-  const tsNum = Number(o.timestamp);
+  const tsNum = Number(Reflect.get(raw, 'timestamp'));
   const timestamp = Number.isFinite(tsNum) ? tsNum : Date.now();
 
   let collectedBy: string | undefined;
-  if (typeof o.collectedByClientId === 'string' && o.collectedByClientId.trim() !== '') {
-    collectedBy = o.collectedByClientId.trim();
+  const rawCollectedBy = Reflect.get(raw, 'collectedByClientId');
+  if (typeof rawCollectedBy === 'string' && rawCollectedBy.trim() !== '') {
+    collectedBy = rawCollectedBy.trim();
   }
 
   let ownerClientId: string | null | undefined;
-  if (typeof o.ownerClientId === 'string' && o.ownerClientId.trim() !== '') {
-    ownerClientId = o.ownerClientId.trim();
-  } else if (o.ownerClientId === null) {
+  const rawOwnerClientId = Reflect.get(raw, 'ownerClientId');
+  if (typeof rawOwnerClientId === 'string' && rawOwnerClientId.trim() !== '') {
+    ownerClientId = rawOwnerClientId.trim();
+  } else if (rawOwnerClientId === null) {
     ownerClientId = null;
   }
 
@@ -112,46 +111,50 @@ export function coerceCharacterState(raw: unknown): CharacterState | null {
   if (raw === null || typeof raw !== 'object') {
     return null;
   }
-  const o = raw as Record<string, unknown>;
-  const clientId = typeof o.clientId === 'string' ? o.clientId.trim() : '';
+  const rawClientId = Reflect.get(raw, 'clientId');
+  const clientId = typeof rawClientId === 'string' ? rawClientId.trim() : '';
   if (!clientId) {
     return null;
   }
 
-  let characterModelId = typeof o.characterModelId === 'string' ? o.characterModelId.trim() : '';
+  const rawCharacterModelId = Reflect.get(raw, 'characterModelId');
+  let characterModelId = typeof rawCharacterModelId === 'string' ? rawCharacterModelId.trim() : '';
   if (!characterModelId) {
     characterModelId = 'Red';
   }
 
-  const environmentName = typeof o.environmentName === 'string' ? o.environmentName.trim() : '';
+  const rawEnvironmentName = Reflect.get(raw, 'environmentName');
+  const environmentName = typeof rawEnvironmentName === 'string' ? rawEnvironmentName.trim() : '';
 
-  const position = coerceWorldVector3(o.position);
-  const rotation = coerceQuaternion(o.rotation);
-  const velocity = coerceWorldVector3(o.velocity);
+  const position = coerceWorldVector3(Reflect.get(raw, 'position'));
+  const rotation = coerceQuaternion(Reflect.get(raw, 'rotation'));
+  const velocity = coerceWorldVector3(Reflect.get(raw, 'velocity'));
   if (!position || !rotation || !velocity) {
     return null;
   }
 
-  let animationState = typeof o.animationState === 'string' ? o.animationState.trim() : '';
+  const rawAnimationState = Reflect.get(raw, 'animationState');
+  let animationState = typeof rawAnimationState === 'string' ? rawAnimationState.trim() : '';
   if (!animationState) {
     animationState = 'idle';
   }
 
-  const afNum = Number(o.animationFrame);
+  const afNum = Number(Reflect.get(raw, 'animationFrame'));
   const animationFrame = Number.isFinite(afNum) ? Math.min(1, Math.max(0, afNum)) : 0;
 
-  const isJumping = Boolean(o.isJumping);
-  const isBoosting = Boolean(o.isBoosting);
+  const isJumping = Boolean(Reflect.get(raw, 'isJumping'));
+  const isBoosting = Boolean(Reflect.get(raw, 'isBoosting'));
 
   let boostType: 'superJump' | 'invisibility' | undefined;
-  if (o.boostType === 'superJump' || o.boostType === 'invisibility') {
-    boostType = o.boostType;
+  const rawBoostType = Reflect.get(raw, 'boostType');
+  if (rawBoostType === 'superJump' || rawBoostType === 'invisibility') {
+    boostType = rawBoostType;
   }
 
-  const btNum = Number(o.boostTimeRemaining);
+  const btNum = Number(Reflect.get(raw, 'boostTimeRemaining'));
   const boostTimeRemaining = Number.isFinite(btNum) ? Math.max(0, btNum) : 0;
 
-  const tsNum = Number(o.timestamp);
+  const tsNum = Number(Reflect.get(raw, 'timestamp'));
   const timestamp = Number.isFinite(tsNum) ? tsNum : Date.now();
 
   return {

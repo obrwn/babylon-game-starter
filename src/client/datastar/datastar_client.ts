@@ -27,7 +27,14 @@
 
 import { CONFIG } from '../config/game_config';
 
-export type DatastarSignalListener<T = unknown> = (data: T) => void;
+export type JsonValue = string | number | boolean | null | readonly JsonValue[] | JsonObject;
+
+// Recursive JSON object types need an index signature; `Record` aliases are rejected by TS 5.3 here.
+export interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
+
+export type DatastarSignalListener<T = JsonValue> = (data: T) => void;
 
 export interface DatastarEventMap {
   connected: undefined;
@@ -171,7 +178,7 @@ export class DatastarClient {
   /**
    * Subscribes to a server signal
    */
-  public onSignal<T = unknown>(
+  public onSignal<T = JsonValue>(
     signalName: string,
     listener: DatastarSignalListener<T>
   ): () => void {
@@ -194,7 +201,7 @@ export class DatastarClient {
    */
   public async patch(
     path: string,
-    data: Record<string, unknown>,
+    data: object,
     options?: { headers?: Record<string, string> }
   ): Promise<Response> {
     const headers = {
@@ -213,46 +220,6 @@ export class DatastarClient {
     }
 
     return response;
-  }
-
-  /**
-   * Sends a POST request to the server
-   */
-  public async post(
-    path: string,
-    data: Record<string, unknown>,
-    options?: { headers?: Record<string, string> }
-  ): Promise<Response> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options?.headers
-    };
-
-    const response = await fetch(path, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      throw new Error(`POST ${path} failed: ${response.status} ${response.statusText}`);
-    }
-
-    return response;
-  }
-
-  /**
-   * Checks if connected to server
-   */
-  public isConnected(): boolean {
-    return this.eventSource?.readyState === EventSource.OPEN;
-  }
-
-  /**
-   * Gets current message index (for deduplication)
-   */
-  public getMessageIndex(): number {
-    return this.messageIndex;
   }
 
   /**
@@ -283,14 +250,19 @@ export class DatastarClient {
 
   private handleMessage(rawData: string): void {
     try {
-      const data = JSON.parse(rawData);
+      const data: {
+        readonly type?: string;
+        readonly name?: string;
+        readonly payload?: JsonValue;
+        readonly data?: JsonValue;
+      } = JSON.parse(rawData);
 
       // Datastar SIGNAL message format
       if (data.type === 'signal' && data.name) {
         const listeners = this.signalListeners.get(data.name);
         if (listeners) {
           for (const listener of listeners) {
-            listener(data.payload ?? data.data);
+            listener(data.payload ?? data.data ?? null);
           }
         }
       }
@@ -319,7 +291,8 @@ export class DatastarClient {
         return;
       }
       const merged = fragments.join('\n');
-      const patch = JSON.parse(merged) as { mp?: { name?: string; payload?: unknown } };
+      const patch: { readonly mp?: { readonly name?: string; readonly payload?: JsonValue } } =
+        JSON.parse(merged);
       const name = patch.mp?.name;
       if (!name) {
         return;
@@ -327,7 +300,7 @@ export class DatastarClient {
       const listeners = this.signalListeners.get(name);
       if (listeners) {
         for (const listener of listeners) {
-          listener(patch.mp!.payload as never);
+          listener(patch.mp?.payload ?? null);
         }
       }
       this.messageIndex++;
@@ -403,21 +376,9 @@ function normalizeMultiplayerHostInput(raw: string): string {
   return s.trim();
 }
 
-/**
- * Shape of `import.meta.env` under Vite. Neither field is guaranteed to exist
- * outside a Vite build (the Babylon playground, Jest, a manual `tsc` run, etc.),
- * so every access goes through this typed cast with optional chaining.
- */
-interface ImportMetaViteEnv {
-  readonly env?: {
-    readonly DEV?: boolean;
-    readonly VITE_MULTIPLAYER_HOST?: string;
-  };
-}
-
-function readViteEnv(): ImportMetaViteEnv['env'] | undefined {
+function readViteEnv(): ImportMetaEnv | undefined {
   try {
-    return (import.meta as unknown as ImportMetaViteEnv).env;
+    return import.meta.env;
   } catch {
     return undefined;
   }
@@ -629,6 +590,7 @@ export function getDatastarClient(): DatastarClient {
 
 /**
  * Sets a custom global Datastar client (for testing)
+ * @expected-unused
  */
 export function setDatastarClient(client: DatastarClient | null): void {
   globalDatastarClient = client;
