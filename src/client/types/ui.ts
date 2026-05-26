@@ -4,6 +4,12 @@
 
 export type HUDPosition = 'top' | 'bottom' | 'left' | 'right';
 
+export interface HudMeterDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+}
+
 export interface HUDConfig {
   readonly POSITION: HUDPosition;
   readonly FONT_FAMILY: string;
@@ -39,7 +45,7 @@ export interface HUDConfig {
   };
 }
 
-export type UIElementType = 'toggle' | 'dropdown';
+export type UIElementType = 'toggle' | 'dropdown' | 'button';
 export type VisibilityType = 'all' | 'mobile' | 'iPadWithKeyboard' | 'playground';
 export type SettingsActionId =
   | 'screen-controls'
@@ -48,7 +54,10 @@ export type SettingsActionId =
   | 'playground-ui'
   | 'split-rendering'
   | 'game-hud'
-  | 'inspector';
+  | 'inspector'
+  | 'pwa-update'
+  | 'pwa-purge-cache'
+  | 'pwa-install';
 
 export interface SettingsSection {
   readonly title: string;
@@ -57,6 +66,8 @@ export interface SettingsSection {
   readonly defaultValue?: boolean | string;
   readonly options?: string[]; // For dropdown elements
   readonly actionId?: SettingsActionId;
+  readonly buttonLabel?: string;
+  readonly hiddenWhen?: 'no-pwa-update' | 'no-pwa-support' | 'no-pwa-install';
 }
 
 export interface SettingsConfig {
