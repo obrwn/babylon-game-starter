@@ -1,4 +1,4 @@
-// ✅ Updated with both services:
+/** @type {import('../types/settings').DeploymentSettings<'render.com'>} */
 const deploymentSettings = {
   host: 'render.com',
   type: 'web-service',
@@ -7,17 +7,18 @@ const deploymentSettings = {
       name: 'api',
       type: 'node',
       routePrefix: '/api',
-      localPort: 8787  // Node API service (future use)
+      localPort: 8787
     },
     {
       name: 'multiplayer',
       type: 'go',
       routePrefix: '/api/multiplayer',
-      localPort: 5000  // ✅ GO Multiplayer service
+      localPort: 5000
     }
   ],
   static: {
-    basePath: '/',
-    publicUrl: 'https://your-service.onrender.com'
+    basePath: '/'
   }
 };
+
+export default deploymentSettings;
