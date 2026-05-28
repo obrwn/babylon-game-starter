@@ -1,19 +1,23 @@
-/** @type {import('../types/settings').DeploymentSettings<'github.io'>} */
+// ✅ Updated with both services:
 const deploymentSettings = {
-  host: 'github.io',
-  type: 'static',
+  host: 'render.com',
+  type: 'web-service',
   services: [
+    {
+      name: 'api',
+      type: 'node',
+      routePrefix: '/api',
+      localPort: 8787  // Node API service (future use)
+    },
     {
       name: 'multiplayer',
       type: 'go',
       routePrefix: '/api/multiplayer',
-      localPort: 5000
+      localPort: 5000  // ✅ GO Multiplayer service
     }
   ],
   static: {
-    basePath: '/babylon-game-starter/',
-    publicUrl: 'https://ericeisaman.github.io/babylon-game-starter/'
+    basePath: '/',
+    publicUrl: 'https://your-service.onrender.com'
   }
 };
-
-export default deploymentSettings;
