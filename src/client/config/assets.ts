@@ -60,16 +60,16 @@ export const ASSETS = {
         walk: 'walk',
         jump: 'jump'
       },
-      scale: 1,
+      scale: 2,
       mass: 1.0, // Standard weight
-      height: 1.8,
-      radius: 0.6,
+      height: 3.6,
+      radius: 1.2,
       speed: {
-        inAir: 25.0,
-        onGround: 25.0,
-        boostMultiplier: 8.0
+        inAir: 50.0,
+        onGround: 50.0,
+        boostMultiplier: 16.0
       },
-      jumpHeight: 2.0,
+      jumpHeight: 4.0,
       rotationSpeed: 0.05, // radians
       rotationSmoothing: 0.2,
       animationBlend: 200,
