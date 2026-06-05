@@ -11,9 +11,9 @@ export const CONFIG: GameConfig = {
   // Character Settings
   CHARACTER: {
     SPEED: {
-      WALK: 2.0,
-      RUN: 4.0,
-      JUMP: 8.0
+      WALK: 3.5,
+      RUN: 6.0,
+      JUMP: 10.0
     },
     CAPSULE_HEIGHT: 1.8,
     CAPSULE_RADIUS: 0.4,
@@ -27,11 +27,11 @@ export const CONFIG: GameConfig = {
 
   // Camera Settings
   CAMERA: {
-    START_POSITION: new BABYLON.Vector3(0, 5, -10),
-    OFFSET: new BABYLON.Vector3(0, 1.2, -3),
+    START_POSITION: new BABYLON.Vector3(0, 6, -14),
+    OFFSET: new BABYLON.Vector3(0, 3.0, -6.0),
     DRAG_SENSITIVITY: 0.02,
-    ZOOM_MIN: -15,
-    ZOOM_MAX: -2,
+    ZOOM_MIN: -22,
+    ZOOM_MAX: -4,
     FOLLOW_SMOOTHING: 0.1
   },
 
@@ -43,7 +43,7 @@ export const CONFIG: GameConfig = {
 
   // Animation Settings
   ANIMATION: {
-    PLAYER_SCALE: 0.7,
+    PLAYER_SCALE: 1.0,
     PLAYER_Y_OFFSET: -0.9
   },
 

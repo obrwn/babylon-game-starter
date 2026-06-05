@@ -60,14 +60,14 @@ export const ASSETS = {
         walk: 'walk',
         jump: 'jump'
       },
-      scale: 2,
+      scale: 2.8,
       mass: 1.0, // Standard weight
       height: 3.6,
       radius: 1.2,
       speed: {
-        inAir: 50.0,
-        onGround: 50.0,
-        boostMultiplier: 16.0
+        inAir: 70.0,
+        onGround: 70.0,
+        boostMultiplier: 18.0
       },
       jumpHeight: 4.0,
       rotationSpeed: 0.05, // radians
@@ -85,14 +85,14 @@ export const ASSETS = {
         walk: 'run',
         jump: 'jump'
       },
-      scale: 1.3,
+      scale: 1.8,
       mass: 0.8, // Lighter weight for agile character
       height: 1.8,
       radius: 0.55,
       speed: {
-        inAir: 30.0, // Faster in air
-        onGround: 30.0, // Faster on ground
-        boostMultiplier: 8.0
+        inAir: 45.0, // Faster in air
+        onGround: 45.0, // Faster on ground
+        boostMultiplier: 10.0
       },
       jumpHeight: 2.5, // Higher jumps
       rotationSpeed: 0.06, // Faster rotation
@@ -109,14 +109,14 @@ export const ASSETS = {
         walk: 'run',
         jump: 'jump'
       },
-      scale: 1.35,
+      scale: 1.8,
       mass: 1.0, // Standard weight
       height: 1.8,
       radius: 0.6,
       speed: {
-        inAir: 25.0,
-        onGround: 25.0,
-        boostMultiplier: 8.0
+        inAir: 40.0,
+        onGround: 40.0,
+        boostMultiplier: 10.0
       },
       jumpHeight: 2.0,
       rotationSpeed: 0.05, // radians
@@ -134,14 +134,14 @@ export const ASSETS = {
         walk: 'Run_InPlace',
         jump: 'Jump'
       },
-      scale: 1.35,
+      scale: 1.9,
       mass: 1.5, // Heavier weight for zombie character
       height: 2.0,
       radius: 0.6,
       speed: {
-        inAir: 20.0, // Slower in air
-        onGround: 20.0, // Slower on ground
-        boostMultiplier: 8.0
+        inAir: 35.0, // Faster in air
+        onGround: 35.0, // Faster on ground
+        boostMultiplier: 10.0
       },
       jumpHeight: 2.5, // Lower jumps
       rotationSpeed: 0.04, // Slower rotation
@@ -159,14 +159,14 @@ export const ASSETS = {
         walk: 'run',
         jump: 'jump'
       },
-      scale: 2.0,
+      scale: 2.6,
       mass: 10.0, // High mass for Hulk character
       height: 2.55,
       radius: 0.95,
       speed: {
-        inAir: 30.0,
-        onGround: 25.0,
-        boostMultiplier: 8.0
+        inAir: 40.0,
+        onGround: 35.0,
+        boostMultiplier: 10.0
       },
       jumpHeight: 11, // Lower jumps
       rotationSpeed: 0.04, // Slower rotation
@@ -855,7 +855,7 @@ export const ASSETS = {
       },
       spawnPoint: new BABYLON.Vector3(1.5, 2, 0),
       spawnRotation: new BABYLON.Vector3(0, Math.PI, 0),
-      cameraOffset: new BABYLON.Vector3(0, 1.1, -2.2),
+      
       items: [
         {
           name: 'Rainbow Bright',
@@ -894,7 +894,8 @@ export const ASSETS = {
         TYPE: 'SPHERE' satisfies SkyType
       },
       spawnPoint: new BABYLON.Vector3(0, 15, -20),
-      spawnRotation: new BABYLON.Vector3(0, 0, 0)
+      spawnRotation: new BABYLON.Vector3(0, 0, 0),
+      cameraOffset: new BABYLON.Vector3(0,8.0,12.5),
     },
     {
       name: 'The Cave',
