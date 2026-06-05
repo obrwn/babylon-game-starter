@@ -49,6 +49,7 @@ In `src/deployment/settings/settings.mjs`, configure the deployment for Netlify 
 Example (with local multiplayer dev server):
 
 ```js
+/** @type {import('../types/settings').DeploymentSettings<'netlify'>} */
 const deploymentSettings = {
   host: 'netlify',
   type: 'static',
@@ -61,8 +62,7 @@ const deploymentSettings = {
     }
   ],
   static: {
-    basePath: '/',
-    publicUrl: 'https://your-site.netlify.app'
+    basePath: '/'
   }
 };
 
@@ -88,13 +88,28 @@ The generated `netlify.toml` pins the static build settings used by Netlify:
 
 ```toml
 [build]
-command = "npm ci && npm run build"
+command = "npm ci && npm run deploy:prepare && npm run build"
 publish = "dist"
 
 [build.environment]
 NODE_VERSION = "22"
 NODE_OPTIONS = "--max-old-space-size=4096"
+
+[[redirects]]
+from = "/chat-api/*"
+to = "https://chat-slayer.onrender.com/:splat"
+status = 200
+force = true
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
 ```
+
+The `/chat-api/*` redirect target is **generated** from [`src/deployment/chat-proxy.defaults.mjs`](src/deployment/chat-proxy.defaults.mjs) when you run prepare (default upstream shown above). Override with `CHAT_UPSTREAM_URL` in Netlify build environment variables before deploy if you use a non-default Chat Slayer host.
+
+When chat is enabled (`serviceUrl: "/chat-api"` in `chat/config.json`), the **`/chat-api/*`** redirect can proxy short Chat Slayer requests, but **not** the live SSE stream — Netlify’s HTTP/2 proxy fails on chunked responses (`ERR_HTTP2_PROTOCOL_ERROR`). The game client therefore connects to Chat Slayer **directly** on `*.netlify.app` (same pattern as multiplayer → `bgs-mp.onrender.com`). Keep the redirect for tooling/consistency; ensure `https://your-site.netlify.app` is in Chat Slayer `ALLOWED_CLIENTS`. Regenerate via `npm run deploy:prepare` on the **`netlify-deployment`** branch. See [CHAT.md](CHAT.md) and [src/deployment/DEPLOYMENT.md — Chat proxy](src/deployment/DEPLOYMENT.md#chat-proxy-chat-slayer).
 
 `NODE_OPTIONS` raises the Node heap for Vite's production build; the `npm run build` script also sets the same heap limit so local and hosted builds behave consistently. The Babylon Inspector is loaded only in Vite development, so production builds should not bundle the Inspector's React/Fluent UI dependency graph.
 
@@ -113,6 +128,7 @@ This produces the static assets under `dist/`.
 In your Netlify site settings, add the environment variables:
 
 - `VITE_MULTIPLAYER_HOST` — optional, set only when using a custom multiplayer server
+- `CHAT_UPSTREAM_URL` — optional, https origin only; overrides default Chat Slayer upstream when Netlify runs `deploy:prepare` during build
 - `NODE_ENV=production` — optional, but recommended for production builds
 - `NODE_VERSION=22` and `NODE_OPTIONS=--max-old-space-size=4096` are already provided by `netlify.toml`; only override them in the Netlify UI if you intentionally want different build runtime settings.
 
